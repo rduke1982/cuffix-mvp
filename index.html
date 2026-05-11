@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuffix</title>
+  <style>body{font-family:sans-serif;text-align:center;padding:20px}button{padding:15px 30px;margin:10px;font-size:18px}</style>
+</head>
+<body>
+  <h1>Cuffix</h1>
+  <p id="prompt">Today's prompt: What would you do with an extra hour every day?</p>
+  <button onclick="startRecording()">Record (10-60s)</button>
+  <button onclick="stopRecording()" disabled>Stop</button>
+  <p id="status"></p>
+  <audio id="playback" controls></audio>
+
+  <script>
+    let mediaRecorder, audioChunks = [], stream;
+    const promptEl = document.getElementById('prompt');
+    const status = document.getElementById('status');
+    const audio = document.getElementById('playback');
+
+    // Simple daily prompt rotation
+    const prompts = [
+      "What would you do with an extra hour every day?",
+      "Describe your perfect weekend.",
+      "Tell me about the last thing that made you laugh.",
+      "What’s something you’re looking forward to?"
+    ];
+    promptEl.textContent = "Today's prompt: " + prompts[Math.floor(Date.now()/86400000) % prompts.length];
+
+    async function startRecording() {
+      stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, {type:'audio/webm'});
+        audio.src = URL.createObjectURL(blob);
+        status.textContent = "Recording saved. Streak +1";
+        // TODO: upload to Firebase Storage here
+      };
+      mediaRecorder.start();
+      status.textContent = "Recording...";
+      document.querySelectorAll('button')[0].disabled = true;
+      document.querySelectorAll('button')[1].disabled = false;
+    }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+      stream.getTracks().forEach(t => t.stop());
+      document.querySelectorAll('button')[0].disabled = false;
+      document.querySelectorAll('button')[1].disabled = true;
+    }
+  </script>
+</body>
+</html>
