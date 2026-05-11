@@ -4,53 +4,82 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cuffix</title>
-  <style>body{font-family:sans-serif;text-align:center;padding:20px}button{padding:15px 30px;margin:10px;font-size:18px}</style>
+  <style>
+    body{font-family:sans-serif;text-align:center;padding:40px 20px;background:#0f0f0f;color:#fff}
+    h1{font-size:3rem;margin:0}
+    .tagline{font-size:1.4rem;color:#aaa;margin:10px 0 40px}
+    button{padding:15px 30px;margin:10px;font-size:18px;background:#0066ff;color:white;border:none;border-radius:8px;cursor:pointer}
+    button:disabled{opacity:0.5;cursor:not-allowed}
+    #timer{font-size:2rem;margin:20px;color:#ffcc00}
+  </style>
 </head>
 <body>
   <h1>Cuffix</h1>
-  <p id="prompt">Today's prompt: What would you do with an extra hour every day?</p>
-  <button onclick="startRecording()">Record (10-60s)</button>
-  <button onclick="stopRecording()" disabled>Stop</button>
-  <p id="status"></p>
-  <audio id="playback" controls></audio>
+  <p class="tagline">Speak Off the Cuff</p>
+  
+  <p id="prompt" style="max-width:600px;margin:30px auto;font-size:1.2rem"></p>
+  
+  <button id="recordBtn" onclick="startRecording()">Record (15s)</button>
+  <button id="stopBtn" onclick="stopRecording()" disabled>Stop</button>
+  
+  <div id="timer">15</div>
+  
+  <p id="status" style="margin:20px;font-size:1.1rem"></p>
+  <audio id="playback" controls style="margin-top:20px;width:80%;max-width:500px"></audio>
 
   <script>
-    let mediaRecorder, audioChunks = [], stream;
+    let mediaRecorder, audioChunks = [], stream, timerInterval, timeLeft = 15;
     const promptEl = document.getElementById('prompt');
     const status = document.getElementById('status');
     const audio = document.getElementById('playback');
+    const timerEl = document.getElementById('timer');
+    const recordBtn = document.getElementById('recordBtn');
+    const stopBtn = document.getElementById('stopBtn');
 
-    // Simple daily prompt rotation
     const prompts = [
       "What would you do with an extra hour every day?",
       "Describe your perfect weekend.",
       "Tell me about the last thing that made you laugh.",
-      "What’s something you’re looking forward to?"
+      "What’s something you’re looking forward to?",
+      "If you could have dinner with anyone, who and why?"
     ];
-    promptEl.textContent = "Today's prompt: " + prompts[Math.floor(Date.now()/86400000) % prompts.length];
+    promptEl.textContent = prompts[Math.floor(Date.now()/86400000) % prompts.length];
 
     async function startRecording() {
-      stream = await navigator.mediaDevices.getUserMedia({audio:true});
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, {type:'audio/webm'});
-        audio.src = URL.createObjectURL(blob);
-        status.textContent = "Recording saved. Streak +1";
-        // TODO: upload to Firebase Storage here
-      };
-      mediaRecorder.start();
-      status.textContent = "Recording...";
-      document.querySelectorAll('button')[0].disabled = true;
-      document.querySelectorAll('button')[1].disabled = false;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({audio:true});
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, {type:'audio/webm'});
+          audio.src = URL.createObjectURL(blob);
+          status.innerHTML = "✅ Recording saved.<br>Streak +1";
+        };
+        mediaRecorder.start();
+        status.textContent = "🎙️ Recording...";
+        recordBtn.disabled = true;
+        stopBtn.disabled = false;
+        
+        timeLeft = 15;
+        timerEl.textContent = timeLeft;
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          timerEl.textContent = timeLeft;
+          if (timeLeft <= 0) stopRecording();
+        }, 1000);
+      } catch(e) {
+        status.textContent = "Microphone access denied";
+      }
     }
 
     function stopRecording() {
-      mediaRecorder.stop();
-      stream.getTracks().forEach(t => t.stop());
-      document.querySelectorAll('button')[0].disabled = false;
-      document.querySelectorAll('button')[1].disabled = true;
+      if (mediaRecorder) mediaRecorder.stop();
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (timerInterval) clearInterval(timerInterval);
+      recordBtn.disabled = false;
+      stopBtn.disabled = true;
+      timerEl.textContent = "15";
     }
   </script>
 </body>
